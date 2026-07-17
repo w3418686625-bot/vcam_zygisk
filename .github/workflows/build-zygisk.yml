@@ -91,6 +91,7 @@ jobs:
 
       - name: Build arm64-v8a
         run: |
+          set -e
           AARCH64_CC="${{ steps.findcc.outputs.AARCH64_CC }}"
           echo "=== Building arm64-v8a with $AARCH64_CC ==="
           
@@ -112,6 +113,7 @@ jobs:
 
       - name: Build armeabi-v7a
         run: |
+          set -e
           ARMV7_CC="${{ steps.findcc.outputs.ARMV7_CC }}"
           echo "=== Building armeabi-v7a with $ARMV7_CC ==="
           
@@ -145,8 +147,8 @@ jobs:
           cp customize.sh zygisk_out/
           cp post-fs-data.sh zygisk_out/
           cp service.sh zygisk_out/
-          cp libs/arm64-v8a/libvcam_zygisk.so zygisk_out/zygisk/arm64-v8a.so
-          cp libs/armeabi-v7a/libvcam_zygisk.so zygisk_out/zygisk/armeabi-v7a.so
+          cp zygisk/libs/arm64-v8a/libvcam_zygisk.so zygisk_out/zygisk/arm64-v8a.so
+          cp zygisk/libs/armeabi-v7a/libvcam_zygisk.so zygisk_out/zygisk/armeabi-v7a.so
           
           chmod 755 zygisk_out/customize.sh
           chmod 755 zygisk_out/post-fs-data.sh
