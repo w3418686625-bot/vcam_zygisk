@@ -123,7 +123,7 @@ jobs:
             -Izygisk_module/zygisk \
             zygisk_module/zygisk/main.cpp \
             -o zygisk_module/zygisk/libs/armeabi-v7a/libvcam_zygisk.so \
-            -llog -landroid -lnativewindow \
+            -llog -landroid \
             -Wl,--gc-sections \
             -Wl,--hash-style=sysv \
             -Wl,--exclude-libs,ALL
