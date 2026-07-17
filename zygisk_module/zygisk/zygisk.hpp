@@ -99,7 +99,7 @@ struct Api {
     }
 
     int getModuleDir() {
-        return table->getModuleDir();
+        return table->getModuleDir(table->impl);
     }
 
     void pltHookRegister(const char *regex, const char *symbol, void *fn, void **backup) {
