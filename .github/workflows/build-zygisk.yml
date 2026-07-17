@@ -1,9 +1,7 @@
 name: Build VCAM Zygisk Module
 
 on:
-  # 手动触发
   workflow_dispatch:
-  # 当 zygisk_module 目录或 workflow 文件变化时自动触发
   push:
     paths:
       - 'zygisk_module/**'
@@ -27,11 +25,64 @@ jobs:
           ndk-version: r26d
           add-to-path: true
 
-      - name: Print environment
+      - name: Debug NDK environment
         run: |
-          echo "NDK path: $ANDROID_NDK_HOME"
-          echo "NDK version: $($ANDROID_NDK_HOME/source.properties | grep 'Pkg.Revision')"
-          ls -la "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | head -20
+          echo "=== Environment variables ==="
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
+          echo "ANDROID_NDK=$ANDROID_NDK"
+          
+          # Find NDK location
+          for dir in "$ANDROID_NDK_HOME" "$ANDROID_NDK_ROOT" "$ANDROID_NDK" "$HOME/android-ndk-r26d" "/usr/local/lib/android/sdk/ndk/26.3.11579264"; do
+            if [ -d "$dir" ]; then
+              echo "Found NDK at: $dir"
+              find "$dir" -name "aarch64-linux-android*-clang++" 2>/dev/null | head -5
+            fi
+          done
+          
+          # Try to find clang++ anywhere
+          echo "=== Searching for clang++ ==="
+          find / -name "aarch64-linux-android*clang++" 2>/dev/null | head -5
+          find / -name "aarch64-linux-android*-clang++" -type f 2>/dev/null | head -5
+          
+          # Check NDK structure
+          if [ -n "$ANDROID_NDK_HOME" ] && [ -d "$ANDROID_NDK_HOME" ]; then
+            echo "=== NDK HOME contents ==="
+            ls -la "$ANDROID_NDK_HOME/" 2>/dev/null
+            echo "=== Toolchains ==="
+            ls -la "$ANDROID_NDK_HOME/toolchains/" 2>/dev/null
+          fi
+
+      - name: Find compiler
+        id: findcc
+        run: |
+          # Find the aarch64 compiler
+          AARCH64_CC=$(find / -name "aarch64-linux-android*-clang++" -type f 2>/dev/null | head -1)
+          ARMV7_CC=$(find / -name "armv7a-linux-androideabi*-clang++" -type f 2>/dev/null | head -1)
+          
+          if [ -z "$AARCH64_CC" ]; then
+            echo "ERROR: Could not find aarch64 clang++ compiler"
+            echo "Trying common paths..."
+            for p in "$ANDROID_NDK_HOME" "$ANDROID_NDK_ROOT" "$ANDROID_NDK"; do
+              if [ -d "$p/toolchains/llvm/prebuilt/linux-x86_64/bin" ]; then
+                echo "Found toolchain at: $p/toolchains/llvm/prebuilt/linux-x86_64/bin"
+                ls "$p/toolchains/llvm/prebuilt/linux-x86_64/bin/"*clang++ 2>/dev/null
+                AARCH64_CC="$p/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++"
+                ARMV7_CC="$p/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi31-clang++"
+              fi
+            done
+          fi
+          
+          echo "AARCH64_CC=$AARCH64_CC"
+          echo "ARMV7_CC=$ARMV7_CC"
+          
+          if [ -z "$AARCH64_CC" ] || [ -z "$ARMV7_CC" ]; then
+            echo "ERROR: Compilers not found!"
+            exit 1
+          fi
+          
+          echo "AARCH64_CC=$AARCH64_CC" >> $GITHUB_OUTPUT
+          echo "ARMV7_CC=$ARMV7_CC" >> $GITHUB_OUTPUT
 
       - name: Create build directories
         run: |
@@ -40,55 +91,45 @@ jobs:
 
       - name: Build arm64-v8a
         run: |
-          echo "=== Building arm64-v8a ==="
-          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++ \
+          AARCH64_CC="${{ steps.findcc.outputs.AARCH64_CC }}"
+          echo "=== Building arm64-v8a with $AARCH64_CC ==="
+          
+          $AARCH64_CC \
             -std=c++17 -O2 -fPIC -shared \
             -fvisibility=hidden -fvisibility-inlines-hidden \
             -fno-exceptions -fno-rtti \
             -ffunction-sections -fdata-sections \
-            -I"$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
             -Izygisk_module/zygisk \
             zygisk_module/zygisk/main.cpp \
             -o zygisk_module/zygisk/libs/arm64-v8a/libvcam_zygisk.so \
             -llog -landroid -lnativewindow \
-            -Wl,-soname,libvcam_zygisk.so \
             -Wl,--gc-sections \
             -Wl,--hash-style=sysv \
             -Wl,--exclude-libs,ALL
           
-          if [ $? -eq 0 ]; then
-            echo "arm64-v8a build: OK"
-            ls -la zygisk_module/zygisk/libs/arm64-v8a/
-          else
-            echo "arm64-v8a build: FAILED"
-            exit 1
-          fi
+          echo "=== Build result ==="
+          ls -la zygisk_module/zygisk/libs/arm64-v8a/
 
       - name: Build armeabi-v7a
         run: |
-          echo "=== Building armeabi-v7a ==="
-          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi31-clang++ \
+          ARMV7_CC="${{ steps.findcc.outputs.ARMV7_CC }}"
+          echo "=== Building armeabi-v7a with $ARMV7_CC ==="
+          
+          $ARMV7_CC \
             -std=c++17 -O2 -fPIC -shared \
             -fvisibility=hidden -fvisibility-inlines-hidden \
             -fno-exceptions -fno-rtti \
             -ffunction-sections -fdata-sections \
-            -I"$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
             -Izygisk_module/zygisk \
             zygisk_module/zygisk/main.cpp \
             -o zygisk_module/zygisk/libs/armeabi-v7a/libvcam_zygisk.so \
             -llog -landroid -lnativewindow \
-            -Wl,-soname,libvcam_zygisk.so \
             -Wl,--gc-sections \
             -Wl,--hash-style=sysv \
             -Wl,--exclude-libs,ALL
           
-          if [ $? -eq 0 ]; then
-            echo "armeabi-v7a build: OK"
-            ls -la zygisk_module/zygisk/libs/armeabi-v7a/
-          else
-            echo "armeabi-v7a build: FAILED"
-            exit 1
-          fi
+          echo "=== Build result ==="
+          ls -la zygisk_module/zygisk/libs/armeabi-v7a/
 
       - name: Install zip
         run: sudo apt-get install -y zip
@@ -98,45 +139,28 @@ jobs:
           echo "=== Packaging Zygisk module ==="
           cd zygisk_module
           
-          # Zygisk 模块结构:
-          # module.prop
-          # customize.sh
-          # post-fs-data.sh
-          # service.sh
-          # zygisk/
-          #   arm64-v8a.so  (注意: Zygisk 要求 .so 文件放在 zygisk/ 目录下，以 ABI 命名)
-          #   armeabi-v7a.so
+          mkdir -p zygisk_out/zygisk
           
-          mkdir -p zygisk_out
-          
-          # 复制必要文件
           cp module.prop zygisk_out/
           cp customize.sh zygisk_out/
           cp post-fs-data.sh zygisk_out/
           cp service.sh zygisk_out/
-          
-          # 创建 zygisk 目录并复制 .so 文件（以 ABI 命名）
-          mkdir -p zygisk_out/zygisk
           cp libs/arm64-v8a/libvcam_zygisk.so zygisk_out/zygisk/arm64-v8a.so
           cp libs/armeabi-v7a/libvcam_zygisk.so zygisk_out/zygisk/armeabi-v7a.so
           
-          # 设置权限
           chmod 755 zygisk_out/customize.sh
           chmod 755 zygisk_out/post-fs-data.sh
           chmod 755 zygisk_out/service.sh
           chmod 644 zygisk_out/module.prop
           chmod 644 zygisk_out/zygisk/*.so
           
-          # 打包 zip
           cd zygisk_out
           zip -r ../vcam_zygisk.zip .
           cd ..
           
           ls -la vcam_zygisk.zip
-          echo "=== Module packaged successfully ==="
-          
-          # 显示 zip 内容
           unzip -l vcam_zygisk.zip
+          echo "=== Module packaged successfully ==="
 
       - name: Upload module artifact
         uses: actions/upload-artifact@v4
@@ -144,33 +168,3 @@ jobs:
           name: vcam_zygisk_module
           path: zygisk_module/vcam_zygisk.zip
           retention-days: 90
-
-      - name: Upload build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build_error_logs
-          path: |
-            zygisk_module/zygisk/libs/
-          retention-days: 7
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f zygisk_module/vcam_zygisk.zip ]; then
-            echo "✅ Zygisk module built successfully!" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Download" >> $GITHUB_STEP_SUMMARY
-            echo "Download the \`vcam_zygisk_module\` artifact and flash it in KernelSU/Magisk." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Installation" >> $GITHUB_STEP_SUMMARY
-            echo "1. Download \`vcam_zygisk.zip\` from artifacts" >> $GITHUB_STEP_SUMMARY
-            echo "2. Open KernelSU/Magisk → Modules → Install from storage" >> $GITHUB_STEP_SUMMARY
-            echo "3. Select \`vcam_zygisk.zip\`" >> $GITHUB_STEP_SUMMARY
-            echo "4. Reboot device" >> $GITHUB_STEP_SUMMARY
-            echo "5. Open VCAM app → Select video → Activate → Replace" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Build failed. Check logs above." >> $GITHUB_STEP_SUMMARY
-          fi
