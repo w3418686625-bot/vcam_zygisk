@@ -1,0 +1,8 @@
+id=vcam_zygisk
+name=VCAM - Virtual Camera (Zygisk)
+version=v1.0
+versionCode=1
+author=VCAM
+description=System-level virtual camera replacement via Zygisk. No LSPosed required. Injects into all app processes and replaces camera feed with selected video. Supports Camera1/Camera2 API.
+updateJson=
+support=

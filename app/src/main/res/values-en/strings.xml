@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VCAM</string>
+    <string name="mode_video">Video Replace</string>
+    <string name="mode_stream">Stream Replace</string>
+    <string name="file_path_label">File Path:</string>
+    <string name="no_file_selected">No MP4 video file selected</string>
+    <string name="file_selected">MP4 video file set</string>
+    <string name="select_video">Select Video</string>
+    <string name="restore_camera">Restore Camera</string>
+    <string name="replace_camera">Replace</string>
+    <string name="front_preview">Front Preview</string>
+    <string name="image_correction">Image Correction</string>
+    <string name="loop_playback">Loop Playback</string>
+    <string name="global_scope_tip">Tip: To apply globally, select \"android\" (System Framework) in LSPosed scope, then reboot to take effect for all apps.</string>
+    <string name="permission_lack_warn">Missing permissions</string>
+    <string name="permission_description">Storage permission is needed to read the selected video and write configuration.</string>
+    <string name="positive">Sure</string>
+    <string name="negative">Refuse</string>
+    <string name="copy_failed">Failed to copy video file</string>
+    <string name="copy_success">Video set successfully</string>
+</resources>

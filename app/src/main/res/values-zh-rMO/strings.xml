@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VCAM</string>
+    <string name="mode_video">視頻替換</string>
+    <string name="mode_stream">推流替換</string>
+    <string name="file_path_label">文件路徑:</string>
+    <string name="no_file_selected">未設置MP4視頻文件</string>
+    <string name="file_selected">已設置MP4視頻文件</string>
+    <string name="select_video">選擇視頻</string>
+    <string name="restore_camera">還原相機</string>
+    <string name="front_preview">前置預覽</string>
+    <string name="image_correction">畫面糾正</string>
+    <string name="loop_playback">循環播放</string>
+    <string name="global_scope_tip">提示：要實現全局生效，請在 LSPosed 作用域中將本模塊設為“全局”或勾選需要使用虛擬攝像頭的應用。</string>
+    <string name="permission_lack_warn">無權限</string>
+    <string name="permission_description">需要存儲權限來讀取選中的視頻並寫入配置文件。</string>
+    <string name="positive">確定</string>
+    <string name="negative">拒絕</string>
+    <string name="copy_failed">複製視頻文件失敗</string>
+    <string name="copy_success">視頻設置成功</string>
+</resources>

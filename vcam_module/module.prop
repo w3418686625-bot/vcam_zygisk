@@ -1,0 +1,6 @@
+id=vcam_global
+name=VCAM - 全局虚拟摄像头
+version=v1.0
+versionCode=1
+author=VCAM
+description=系统级虚拟摄像头替换。开机自动配置 LSPosed 作用域，所有 App 前后摄像头替换为指定视频。无需手动选 App，安装即生效。

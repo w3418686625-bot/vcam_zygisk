@@ -1,0 +1,176 @@
+name: Build VCAM Zygisk Module
+
+on:
+  # 手动触发
+  workflow_dispatch:
+  # 当 zygisk_module 目录或 workflow 文件变化时自动触发
+  push:
+    paths:
+      - 'zygisk_module/**'
+      - '.github/workflows/build-zygisk.yml'
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    name: Build Zygisk Module
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+          add-to-path: true
+
+      - name: Print environment
+        run: |
+          echo "NDK path: $ANDROID_NDK_HOME"
+          echo "NDK version: $($ANDROID_NDK_HOME/source.properties | grep 'Pkg.Revision')"
+          ls -la "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/" | head -20
+
+      - name: Create build directories
+        run: |
+          mkdir -p zygisk_module/zygisk/libs/arm64-v8a
+          mkdir -p zygisk_module/zygisk/libs/armeabi-v7a
+
+      - name: Build arm64-v8a
+        run: |
+          echo "=== Building arm64-v8a ==="
+          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++ \
+            -std=c++17 -O2 -fPIC -shared \
+            -fvisibility=hidden -fvisibility-inlines-hidden \
+            -fno-exceptions -fno-rtti \
+            -ffunction-sections -fdata-sections \
+            -I"$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
+            -Izygisk_module/zygisk \
+            zygisk_module/zygisk/main.cpp \
+            -o zygisk_module/zygisk/libs/arm64-v8a/libvcam_zygisk.so \
+            -llog -landroid -lnativewindow \
+            -Wl,-soname,libvcam_zygisk.so \
+            -Wl,--gc-sections \
+            -Wl,--hash-style=sysv \
+            -Wl,--exclude-libs,ALL
+          
+          if [ $? -eq 0 ]; then
+            echo "arm64-v8a build: OK"
+            ls -la zygisk_module/zygisk/libs/arm64-v8a/
+          else
+            echo "arm64-v8a build: FAILED"
+            exit 1
+          fi
+
+      - name: Build armeabi-v7a
+        run: |
+          echo "=== Building armeabi-v7a ==="
+          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi31-clang++ \
+            -std=c++17 -O2 -fPIC -shared \
+            -fvisibility=hidden -fvisibility-inlines-hidden \
+            -fno-exceptions -fno-rtti \
+            -ffunction-sections -fdata-sections \
+            -I"$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
+            -Izygisk_module/zygisk \
+            zygisk_module/zygisk/main.cpp \
+            -o zygisk_module/zygisk/libs/armeabi-v7a/libvcam_zygisk.so \
+            -llog -landroid -lnativewindow \
+            -Wl,-soname,libvcam_zygisk.so \
+            -Wl,--gc-sections \
+            -Wl,--hash-style=sysv \
+            -Wl,--exclude-libs,ALL
+          
+          if [ $? -eq 0 ]; then
+            echo "armeabi-v7a build: OK"
+            ls -la zygisk_module/zygisk/libs/armeabi-v7a/
+          else
+            echo "armeabi-v7a build: FAILED"
+            exit 1
+          fi
+
+      - name: Install zip
+        run: sudo apt-get install -y zip
+
+      - name: Package Zygisk module
+        run: |
+          echo "=== Packaging Zygisk module ==="
+          cd zygisk_module
+          
+          # Zygisk 模块结构:
+          # module.prop
+          # customize.sh
+          # post-fs-data.sh
+          # service.sh
+          # zygisk/
+          #   arm64-v8a.so  (注意: Zygisk 要求 .so 文件放在 zygisk/ 目录下，以 ABI 命名)
+          #   armeabi-v7a.so
+          
+          mkdir -p zygisk_out
+          
+          # 复制必要文件
+          cp module.prop zygisk_out/
+          cp customize.sh zygisk_out/
+          cp post-fs-data.sh zygisk_out/
+          cp service.sh zygisk_out/
+          
+          # 创建 zygisk 目录并复制 .so 文件（以 ABI 命名）
+          mkdir -p zygisk_out/zygisk
+          cp libs/arm64-v8a/libvcam_zygisk.so zygisk_out/zygisk/arm64-v8a.so
+          cp libs/armeabi-v7a/libvcam_zygisk.so zygisk_out/zygisk/armeabi-v7a.so
+          
+          # 设置权限
+          chmod 755 zygisk_out/customize.sh
+          chmod 755 zygisk_out/post-fs-data.sh
+          chmod 755 zygisk_out/service.sh
+          chmod 644 zygisk_out/module.prop
+          chmod 644 zygisk_out/zygisk/*.so
+          
+          # 打包 zip
+          cd zygisk_out
+          zip -r ../vcam_zygisk.zip .
+          cd ..
+          
+          ls -la vcam_zygisk.zip
+          echo "=== Module packaged successfully ==="
+          
+          # 显示 zip 内容
+          unzip -l vcam_zygisk.zip
+
+      - name: Upload module artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcam_zygisk_module
+          path: zygisk_module/vcam_zygisk.zip
+          retention-days: 90
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_error_logs
+          path: |
+            zygisk_module/zygisk/libs/
+          retention-days: 7
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f zygisk_module/vcam_zygisk.zip ]; then
+            echo "✅ Zygisk module built successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Download" >> $GITHUB_STEP_SUMMARY
+            echo "Download the \`vcam_zygisk_module\` artifact and flash it in KernelSU/Magisk." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Installation" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download \`vcam_zygisk.zip\` from artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "2. Open KernelSU/Magisk → Modules → Install from storage" >> $GITHUB_STEP_SUMMARY
+            echo "3. Select \`vcam_zygisk.zip\`" >> $GITHUB_STEP_SUMMARY
+            echo "4. Reboot device" >> $GITHUB_STEP_SUMMARY
+            echo "5. Open VCAM app → Select video → Activate → Replace" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Build failed. Check logs above." >> $GITHUB_STEP_SUMMARY
+          fi

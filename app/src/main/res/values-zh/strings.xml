@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VCAM</string>
+    <string name="mode_video">视频替换</string>
+    <string name="mode_stream">推流替换</string>
+    <string name="file_path_label">文件路径:</string>
+    <string name="no_file_selected">未设置MP4视频文件</string>
+    <string name="file_selected">已设置MP4视频文件</string>
+    <string name="select_video">选择视频</string>
+    <string name="restore_camera">还原相机</string>
+    <string name="replace_camera">替换</string>
+    <string name="front_preview">前置预览</string>
+    <string name="image_correction">画面纠正</string>
+    <string name="loop_playback">循环播放</string>
+    <string name="global_scope_tip">提示：要实现全局生效，请在 LSPosed 作用域中勾选“android”（系统框架），重启手机后即可对所有应用生效，无需为每个应用单独选择。</string>
+    <string name="permission_lack_warn">无权限</string>
+    <string name="permission_description">需要存储权限来读取选中的视频并写入配置文件。</string>
+    <string name="positive">确定</string>
+    <string name="negative">拒绝</string>
+    <string name="copy_failed">复制视频文件失败</string>
+    <string name="copy_success">视频设置成功</string>
+</resources>
